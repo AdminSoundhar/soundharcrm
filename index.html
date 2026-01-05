@@ -8,27 +8,42 @@
     
     <!-- Styling & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Babel Standalone for JSX parsing in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; }
         .font-display { font-family: 'Playfair Display', serif; }
-        .animate-in { animation: fadeIn 0.5s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .animate-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        .auth-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
     </style>
 <script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
+    "react": "https://esm.sh/react@19",
+    "react-dom": "https://esm.sh/react-dom@19",
+    "react-dom/client": "https://esm.sh/react-dom@19/client",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "recharts": "https://esm.sh/recharts@^3.6.0",
+    "lucide-react": "https://esm.sh/lucide-react@^0.462.0",
+    "recharts": "https://esm.sh/recharts@^2.13.0",
     "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "react/": "https://esm.sh/react@^19.2.3/"
   }
 }
 </script>
@@ -38,58 +53,36 @@
     <div id="root"></div>
 
     <script type="text/babel" data-type="module">
-        // 1. Explicitly import React and ReactDOM from ESM CDN
-        import React, { useState, useEffect, useMemo } from 'https://esm.sh/react@19';
-        import ReactDOM from 'https://esm.sh/react-dom@19/client';
-        
-        // 2. Attach to window so Babel's generated React.createElement works
-        window.React = React;
-        window.ReactDOM = ReactDOM;
-
-        // 3. Import other dependencies
+        import React, { useState, useEffect, useRef } from 'react';
+        import ReactDOM from 'react-dom/client';
         import { 
-            LayoutDashboard, Users, UserPlus, PieChart, Gem, LogOut, 
-            ShieldCheck, Settings as SettingsIcon, Search, Filter, 
-            MoreHorizontal, Phone, MessageSquare, Mail, BrainCircuit, 
-            ExternalLink, Eye, Save, User as UserIcon, FileText, 
-            IndianRupee, Weight, UserCircle, Share2, Box, ArrowLeft, 
-            Calendar, Clock, Send, Lock, ChevronRight, Trash2, Plus, X 
-        } from 'https://esm.sh/lucide-react';
-        
-        import { 
-            BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, 
-            ResponsiveContainer, PieChart as RePieChart, Pie, Cell 
-        } from 'https://esm.sh/recharts';
+            LayoutDashboard, Users, UserPlus, Gem, LogOut, ShieldCheck, 
+            Settings as SettingsIcon, Eye, Trash2, Key, Camera, User as UserIcon, 
+            ChevronRight, ArrowLeft, Save, RefreshCcw, AlertCircle, CheckCircle2, UserCircle
+        } from 'lucide-react';
 
-        import { GoogleGenAI, Type } from 'https://esm.sh/@google/genai';
-
-        // --- CONSTANTS ---
-        const METAL_GROUPS = ['Gold', 'Diamond', 'Platinum', 'Silver'];
-        const STATUS_COLORS = {
-            'New': 'bg-blue-100 text-blue-700',
-            'Contacted': 'bg-purple-100 text-purple-700',
-            'Qualified': 'bg-indigo-100 text-indigo-700',
-            'Negotiating': 'bg-amber-100 text-amber-700',
-            'Closed': 'bg-emerald-100 text-emerald-700',
-            'Lost': 'bg-rose-100 text-rose-700',
-        };
-
-        // --- COMPONENTS ---
+        // --- MASTER DATA (HARDCODED AS FALLBACK) ---
+        const INITIAL_TEAM_DATA = [
+            { id: '1', name: "Admin Account", email: "admin@jewelflow.com", role: "Admin", password: "admin123", createdAt: "2025-01-01T10:00:00.000Z", avatar: null },
+            { id: '2', name: "Sales Head", email: "sales@jewelflow.com", role: "Manager", password: "manager123", createdAt: "2025-01-01T11:00:00.000Z", avatar: null },
+            { id: '3', name: "Sales Associate", email: "sales1@jewelflow.com", role: "Sales", password: "sales123", createdAt: "2025-01-01T12:00:00.000Z", avatar: null },
+            { id: '4', name: "Sales Associate", email: "sales2@jewelflow.com", role: "Sales", password: "sales123", createdAt: "2025-01-01T12:00:00.000Z", avatar: null }
+        ];
 
         const Sidebar = ({ currentView, setView, currentUser, onLogout }) => {
             const menuItems = [
                 { id: 'dashboard', label: 'Overview', icon: LayoutDashboard, roles: ['Admin', 'Manager', 'Sales'] },
                 { id: 'leads', label: 'Lead Pipeline', icon: Users, roles: ['Admin', 'Manager', 'Sales'] },
                 { id: 'add-lead', label: 'New Lead', icon: UserPlus, roles: ['Admin', 'Manager', 'Sales'] },
-                { id: 'user-mgmt', label: 'Team Access', icon: ShieldCheck, roles: ['Admin'] },
-                { id: 'settings', label: 'Settings', icon: SettingsIcon, roles: ['Admin'] },
+                { id: 'user-mgmt', label: 'Team Access', icon: ShieldCheck, roles: ['Admin', 'Manager'] },
+                { id: 'settings', label: 'Settings', icon: SettingsIcon, roles: ['Admin', 'Manager', 'Sales'] },
             ];
             const filteredItems = menuItems.filter(item => item.roles.includes(currentUser.role));
 
             return (
-                <aside className="w-64 bg-slate-900 h-screen flex flex-col sticky top-0 shadow-2xl">
+                <aside className="w-64 bg-slate-900 h-screen flex flex-col sticky top-0 shadow-2xl z-20">
                     <div className="p-6 flex items-center gap-3">
-                        <div className="bg-amber-500 p-2 rounded-lg"><Gem className="text-white h-6 w-6" /></div>
+                        <div className="bg-amber-500 p-2 rounded-lg shadow-lg shadow-amber-500/20"><Gem className="text-white h-6 w-6" /></div>
                         <h1 className="text-xl font-bold text-white tracking-tight font-display">JewelFlow</h1>
                     </div>
                     <nav className="flex-1 px-4 mt-4 space-y-1">
@@ -97,117 +90,246 @@
                             const Icon = item.icon;
                             const isActive = currentView === item.id;
                             return (
-                                <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${isActive ? 'bg-amber-500 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
+                                <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all ${isActive ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-slate-400 hover:text-white hover:bg-slate-800'}`}>
                                     <Icon size={18} /> {item.label}
                                 </button>
                             );
                         })}
                     </nav>
                     <div className="p-4 border-t border-slate-800">
-                        <div className="flex items-center gap-3 px-4 py-3 mb-2">
-                            <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs border border-slate-700">{currentUser.name.charAt(0)}</div>
+                        <div className="flex items-center gap-3 px-4 py-3 mb-2 bg-white/5 rounded-xl border border-white/5">
+                            {currentUser.avatar ? (
+                                <img src={currentUser.avatar} className="w-10 h-10 rounded-full object-cover border border-slate-700 shadow-lg" alt="" />
+                            ) : (
+                                <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-white font-bold text-xs border border-slate-700 uppercase">{currentUser.name.charAt(0)}</div>
+                            )}
                             <div className="overflow-hidden">
                                 <p className="text-sm font-medium text-white truncate">{currentUser.name}</p>
                                 <p className="text-[10px] font-black uppercase text-amber-500 tracking-widest">{currentUser.role}</p>
                             </div>
                         </div>
-                        <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-400 hover:text-rose-400 transition-colors"><LogOut size={18} /> Sign Out</button>
+                        <button onClick={onLogout} className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-400 hover:text-rose-400 transition-colors mt-2"><LogOut size={18} /> Sign Out</button>
                     </div>
                 </aside>
             );
         };
 
-        const Dashboard = ({ leads }) => {
-            const COLORS = ['#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
-            const stats = [
-                { label: 'Total Leads', value: leads.length, icon: Users, color: 'bg-blue-50 text-blue-600' },
-                { label: 'Qualified', value: leads.filter(l => l.status === 'Qualified').length, icon: ShieldCheck, color: 'bg-amber-50 text-amber-600' },
-                { label: 'Deals Won', value: leads.filter(l => l.status === 'Closed').length, icon: Gem, color: 'bg-emerald-50 text-emerald-600' },
-            ];
+        const Login = ({ users, onLogin }) => {
+            const [email, setEmail] = useState('');
+            const [password, setPassword] = useState('');
+            const [error, setError] = useState('');
 
-            const metalData = METAL_GROUPS.map(m => ({ name: m, value: leads.filter(l => l.metalGroup === m).length }));
+            const handleLogin = (e) => {
+                e.preventDefault();
+                setError('');
+
+                const trimmedEmail = email.trim().toLowerCase();
+                const foundUser = users.find(u => u.email.trim().toLowerCase() === trimmedEmail);
+                
+                if (foundUser) {
+                    if (foundUser.password === password) {
+                        onLogin(foundUser);
+                    } else {
+                        setError('Access key is incorrect.');
+                    }
+                } else {
+                    setError('User identity not found in database.');
+                }
+            };
 
             return (
-                <div className="p-8 space-y-8 animate-in">
-                    <header>
-                        <h1 className="text-3xl font-bold text-slate-900 font-display">Sales Overview</h1>
-                        <p className="text-slate-500 mt-1">Real-time jewelry pipeline analytics.</p>
-                    </header>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {stats.map(stat => (
-                            <div key={stat.label} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                <div className={`${stat.color} p-3 rounded-xl w-fit mb-4`}><stat.icon size={24} /></div>
-                                <p className="text-slate-500 text-sm">{stat.label}</p>
-                                <h3 className="text-2xl font-bold text-slate-900 mt-1">{stat.value}</h3>
-                            </div>
-                        ))}
+                <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6 relative">
+                    <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none opacity-20">
+                        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-amber-500/30 blur-[150px] rounded-full"></div>
+                        <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-indigo-500/20 blur-[150px] rounded-full"></div>
                     </div>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        <div className="bg-white p-8 rounded-2xl border border-slate-200 h-96">
-                            <h3 className="text-lg font-bold text-slate-900 mb-6 font-display">Metal Interest</h3>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RePieChart>
-                                    <Pie data={metalData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-                                        {metalData.map((e, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                                    </Pie>
-                                    <Tooltip />
-                                </RePieChart>
-                            </ResponsiveContainer>
+
+                    <div className="w-full max-w-md auth-card p-12 rounded-[48px] shadow-2xl text-center text-white relative z-10 animate-in">
+                        <div className="bg-amber-500 w-20 h-20 rounded-[28px] flex items-center justify-center mx-auto mb-10 shadow-2xl shadow-amber-500/40">
+                            <Gem className="text-white" size={36}/>
                         </div>
-                        <div className="bg-white p-8 rounded-2xl border border-slate-200">
-                            <h3 className="text-lg font-bold text-slate-900 mb-6 font-display">Recent Prospects</h3>
-                            <div className="space-y-4">
-                                {leads.slice(0, 5).map(lead => (
-                                    <div key={lead.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                        <div>
-                                            <p className="text-sm font-bold text-slate-900">{lead.customerName}</p>
-                                            <p className="text-[10px] text-slate-500 uppercase">{lead.metalGroup} {lead.productCategory}</p>
-                                        </div>
-                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${STATUS_COLORS[lead.status]}`}>{lead.status}</span>
-                                    </div>
-                                ))}
-                                {leads.length === 0 && <p className="text-center text-slate-400 py-10 italic">No leads registered yet.</p>}
+                        <h1 className="text-4xl font-bold font-display mb-2 tracking-tight">JewelFlow</h1>
+                        <p className="text-slate-500 text-[10px] font-black uppercase tracking-[4px] mb-12">Authorized Access</p>
+                        
+                        <form onSubmit={handleLogin} className="space-y-8 text-left">
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[2px] ml-1">Identity Profile</label>
+                                <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-600" placeholder="admin@jewelflow.com" />
                             </div>
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-slate-500 uppercase tracking-[2px] ml-1">Access Token</label>
+                                <input required type="password" value={password} onChange={e => setPassword(e.target.value)} className="w-full px-6 py-5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500 transition-all placeholder:text-slate-600" placeholder="Password" />
+                            </div>
+                            
+                            {error && (
+                                <div className="p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center gap-3 animate-in">
+                                    <AlertCircle className="text-rose-500 shrink-0" size={18} />
+                                    <p className="text-rose-200 text-xs font-bold uppercase tracking-tight leading-relaxed">{error}</p>
+                                </div>
+                            )}
+
+                            <button type="submit" className="w-full py-6 bg-amber-500 text-slate-900 font-black text-xs uppercase tracking-[3px] rounded-2xl shadow-2xl shadow-amber-500/30 hover:bg-amber-400 active:scale-[0.98] transition-all">
+                                Authorize Login
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            );
+        };
+
+        const SettingsView = ({ currentUser, onUpdateProfile }) => {
+            const fileRef = useRef(null);
+            const [saved, setSaved] = useState(false);
+
+            const handleFileChange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const base64 = event.target.result;
+                    onUpdateProfile({ avatar: base64 });
+                    setSaved(true);
+                    setTimeout(() => setSaved(false), 3000);
+                };
+                reader.readAsDataURL(file);
+            };
+
+            return (
+                <div className="p-8 max-w-2xl mx-auto space-y-8 animate-in">
+                    <header>
+                        <h1 className="text-3xl font-bold text-slate-900 font-display">Profile Settings</h1>
+                        <p className="text-slate-500 mt-1">Manage your identity and app appearance.</p>
+                    </header>
+                    <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm p-10">
+                        <div className="flex flex-col md:flex-row items-center gap-8">
+                            <div className="relative group">
+                                <div className="w-32 h-32 rounded-[40px] bg-slate-900 flex items-center justify-center text-white text-4xl font-bold overflow-hidden border-4 border-white shadow-2xl transition-transform duration-300 group-hover:scale-[1.02]">
+                                    {currentUser.avatar ? (
+                                        <img src={currentUser.avatar} className="w-full h-full object-cover" alt="Profile" />
+                                    ) : (
+                                        currentUser.name.charAt(0).toUpperCase()
+                                    )}
+                                </div>
+                                <button 
+                                    onClick={() => fileRef.current?.click()} 
+                                    className="absolute -bottom-2 -right-2 bg-amber-500 text-white p-3 rounded-2xl shadow-xl hover:scale-110 active:scale-95 transition-all z-10"
+                                    title="Upload Profile Picture"
+                                >
+                                    <Camera size={20}/>
+                                </button>
+                                <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                            </div>
+                            <div className="text-center md:text-left">
+                                <h3 className="text-2xl font-bold text-slate-900 font-display">{currentUser.name}</h3>
+                                <p className="text-slate-400 font-medium">{currentUser.email}</p>
+                                <div className="mt-3 flex flex-wrap gap-2 justify-center md:justify-start">
+                                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-lg text-[10px] font-black uppercase tracking-widest">{currentUser.role} Account</span>
+                                    {saved && <span className="flex items-center gap-1 text-emerald-500 text-[10px] font-bold uppercase animate-in"><CheckCircle2 size={14}/> Saved</span>}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-12 space-y-6 pt-10 border-t border-slate-100">
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Name</label>
+                                    <input disabled value={currentUser.name} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-500 cursor-not-allowed font-medium" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email Identity</label>
+                                    <input disabled value={currentUser.email} className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-slate-500 cursor-not-allowed font-medium" />
+                                </div>
+                             </div>
+                        </div>
+                    </div>
+                    
+                    <div className="bg-amber-50 border border-amber-100 rounded-[24px] p-6 flex items-start gap-4">
+                        <AlertCircle className="text-amber-500 shrink-0" size={20} />
+                        <div>
+                            <p className="text-sm font-bold text-amber-900">Information Persistence</p>
+                            <p className="text-xs text-amber-800/70 mt-1 leading-relaxed">
+                                Profile photos are stored locally in your browser. Account metadata is managed via the master <b>Team Access.csv</b> database.
+                            </p>
                         </div>
                     </div>
                 </div>
             );
         };
 
-        const LeadTable = ({ leads, onUpdateStatus, onViewDetails }) => {
+        const UserManagement = ({ users, onDeleteUser, onAddUser }) => {
+            const [showAdd, setShowAdd] = useState(false);
+            const [formData, setFormData] = useState({ name: '', email: '', role: 'Sales', password: '' });
+
             return (
-                <div className="p-8 space-y-6 animate-in">
-                    <header>
-                        <h1 className="text-3xl font-bold text-slate-900 font-display">Lead Pipeline</h1>
-                        <p className="text-slate-500">Manage and track your customer journey.</p>
+                <div className="p-8 space-y-8 animate-in">
+                    <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div>
+                            <h1 className="text-3xl font-bold font-display tracking-tight text-slate-900">Team Access Database</h1>
+                            <p className="text-slate-500 mt-1">Manage corporate accounts and credential access.</p>
+                        </div>
+                        <button onClick={() => setShowAdd(!showAdd)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[2px] shadow-xl shadow-slate-900/10 hover:bg-slate-800 transition-all">+ Add New Member</button>
                     </header>
-                    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+
+                    {showAdd && (
+                        <div className="bg-white p-10 rounded-[32px] border border-slate-200 shadow-sm animate-in">
+                            <h3 className="text-lg font-bold text-slate-900 font-display mb-6">Create New Record</h3>
+                            <form onSubmit={(e) => { e.preventDefault(); onAddUser(formData); setShowAdd(false); setFormData({name:'', email:'', role:'Sales', password: ''}); }} className="grid grid-cols-1 md:grid-cols-5 gap-6 items-end">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase">Name</label>
+                                    <input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500" placeholder="Full Name" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase">Email</label>
+                                    <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500" placeholder="corporate@jewelflow.com" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase">Key</label>
+                                    <input required type="text" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500" placeholder="Passphrase" />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-400 uppercase">Role</label>
+                                    <select value={formData.role} onChange={e => setFormData({...formData, role: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-2 focus:ring-amber-500">
+                                        <option value="Admin">Admin</option>
+                                        <option value="Manager">Manager</option>
+                                        <option value="Sales">Sales</option>
+                                    </select>
+                                </div>
+                                <button type="submit" className="bg-amber-500 text-slate-900 h-[52px] rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-amber-500/20">Commit Record</button>
+                            </form>
+                        </div>
+                    )}
+
+                    <div className="bg-white rounded-[40px] border border-slate-200 overflow-hidden shadow-sm">
                         <table className="w-full text-left">
-                            <thead className="bg-slate-50 border-b border-slate-200">
+                            <thead className="bg-slate-50/50 border-b border-slate-200">
                                 <tr>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Customer</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Category</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
-                                    <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase text-right">Actions</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Team Member</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Credential Key</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Permissions</th>
+                                    <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {leads.map(lead => (
-                                    <tr key={lead.id} className="hover:bg-slate-50 transition-colors group">
-                                        <td className="px-6 py-5">
-                                            <p className="font-bold text-slate-900">{lead.customerName}</p>
-                                            <p className="text-xs text-slate-500">{lead.mobile}</p>
+                                {users.map(u => (
+                                    <tr key={u.id} className="hover:bg-slate-50/30 transition-colors">
+                                        <td className="px-8 py-5 flex items-center gap-4">
+                                            {u.avatar ? (
+                                                <img src={u.avatar} className="w-12 h-12 rounded-2xl object-cover border border-slate-100 shadow-sm" alt="" />
+                                            ) : (
+                                                <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white text-[10px] font-bold shadow-sm">{u.name.charAt(0)}</div>
+                                            )}
+                                            <div>
+                                                <p className="font-bold text-sm text-slate-900">{u.name}</p>
+                                                <p className="text-xs text-slate-400 font-mono mt-0.5">{u.email}</p>
+                                            </div>
                                         </td>
-                                        <td className="px-6 py-5">
-                                            <p className="text-sm text-slate-700 font-medium">{lead.productCategory}</p>
+                                        <td className="px-8 py-5 text-xs text-slate-400 font-mono tracking-tighter">{u.password}</td>
+                                        <td className="px-8 py-5">
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${u.role === 'Admin' ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>{u.role}</span>
                                         </td>
-                                        <td className="px-6 py-5">
-                                            <select value={lead.status} onChange={(e) => onUpdateStatus(lead.id, e.target.value)} className={`px-2 py-1 rounded text-xs font-bold uppercase outline-none border-none ${STATUS_COLORS[lead.status]}`}>
-                                                {Object.keys(STATUS_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
-                                            </select>
-                                        </td>
-                                        <td className="px-6 py-5 text-right">
-                                            <button onClick={() => onViewDetails(lead.id)} className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-900 hover:text-white transition-all"><Eye size={16} /></button>
+                                        <td className="px-8 py-5 text-right">
+                                            <button onClick={() => onDeleteUser(u.id)} className="p-2.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all"><Trash2 size={18}/></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -218,111 +340,99 @@
             );
         };
 
-        const Login = ({ onLogin }) => {
-            const [email, setEmail] = useState('admin@jewelflow.com');
-            return (
-                <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-                    <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl shadow-2xl text-center">
-                        <div className="bg-amber-500 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6"><Gem className="text-white" size={32} /></div>
-                        <h1 className="text-3xl font-bold text-white font-display mb-2">JewelFlow CRM</h1>
-                        <p className="text-slate-400 mb-8">Secure Enterprise Access</p>
-                        <form onSubmit={(e) => { e.preventDefault(); onLogin({ id: '1', name: 'Admin', role: 'Admin', email }); }} className="space-y-4">
-                            <input value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-amber-500" placeholder="Email Address" />
-                            <input type="password" value="password" className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white outline-none focus:ring-2 focus:ring-amber-500" placeholder="Password" />
-                            <button type="submit" className="w-full py-4 bg-amber-500 text-white font-bold rounded-xl shadow-lg hover:bg-amber-400 transition-all mt-4">Sign In</button>
-                        </form>
-                    </div>
-                </div>
-            );
-        };
-
-        const LeadForm = ({ onSave, onCancel, currentUser }) => {
-            const [formData, setFormData] = useState({ customerName: '', mobile: '', email: '', metalGroup: 'Gold', productCategory: 'Necklace', budget: '', description: '', source: 'Whatsapp', leadGeneratorId: currentUser.id, leadGeneratorName: currentUser.name });
-            return (
-                <div className="p-8 max-w-4xl mx-auto animate-in">
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                        <div className="p-8 bg-slate-50 border-b border-slate-200"><h2 className="text-2xl font-bold font-display">New Sales Lead</h2></div>
-                        <form className="p-8 space-y-6" onSubmit={e => { e.preventDefault(); onSave(formData); }}>
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Customer Name</label>
-                                    <input required value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500" />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Mobile</label>
-                                    <input required value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500" />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Metal</label>
-                                    <select value={formData.metalGroup} onChange={e => setFormData({...formData, metalGroup: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg">
-                                        {METAL_GROUPS.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-xs font-bold text-slate-500 uppercase">Budget (₹)</label>
-                                    <input value={formData.budget} onChange={e => setFormData({...formData, budget: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-lg" />
-                                </div>
-                            </div>
-                            <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
-                                <button type="button" onClick={onCancel} className="px-6 py-2 bg-slate-100 text-slate-600 rounded-xl font-bold">Cancel</button>
-                                <button type="submit" className="px-8 py-2 bg-amber-500 text-white rounded-xl font-bold shadow-lg">Register Lead</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            );
-        };
-
-        // --- MAIN APP ---
-
         const App = () => {
             const [currentUser, setCurrentUser] = useState(() => JSON.parse(localStorage.getItem('jf_user') || 'null'));
             const [view, setView] = useState('dashboard');
+            const [users, setUsers] = useState(() => {
+                const saved = localStorage.getItem('jf_users');
+                return saved ? JSON.parse(saved) : INITIAL_TEAM_DATA;
+            });
             const [leads, setLeads] = useState(() => JSON.parse(localStorage.getItem('jf_leads') || '[]'));
-            const [selectedId, setSelectedId] = useState(null);
+            const [isSyncing, setIsSyncing] = useState(false);
 
-            useEffect(() => { if (currentUser) localStorage.setItem('jf_user', JSON.stringify(currentUser)); }, [currentUser]);
+            useEffect(() => { localStorage.setItem('jf_users', JSON.stringify(users)); }, [users]);
             useEffect(() => { localStorage.setItem('jf_leads', JSON.stringify(leads)); }, [leads]);
+            useEffect(() => { 
+                if (currentUser) {
+                    localStorage.setItem('jf_user', JSON.stringify(currentUser));
+                    // Update main user list with changes (like avatar)
+                    setUsers(prev => prev.map(u => u.email.toLowerCase() === currentUser.email.toLowerCase() ? currentUser : u));
+                }
+            }, [currentUser]);
 
-            const handleAddLead = (data) => {
-                const newLead = { ...data, id: Date.now().toString(), createdAt: new Date().toISOString(), status: 'New' };
-                setLeads([newLead, ...leads]);
-                setView('leads');
+            const fetchRepoDatabase = async () => {
+                setIsSyncing(true);
+                try {
+                    const response = await fetch('./Team Access.csv?t=' + Date.now());
+                    if (response.ok) {
+                        const text = await response.text();
+                        // Simple CSV parser
+                        const lines = text.split(/\r?\n/).filter(l => l.trim());
+                        const parsed = lines.slice(1).map(l => {
+                            const parts = l.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g).map(p => p.replace(/^"|"$/g, ''));
+                            return {
+                                id: Math.random().toString(36).substr(2, 9),
+                                name: parts[0],
+                                email: parts[1],
+                                role: parts[2],
+                                password: parts[3],
+                                createdAt: parts[4] || new Date().toISOString(),
+                                avatar: null
+                            };
+                        });
+                        if (parsed.length > 0) {
+                            // Merge with existing locally stored data (preserve avatars)
+                            const merged = parsed.map(newUser => {
+                                const existing = users.find(u => u.email.toLowerCase() === newUser.email.toLowerCase());
+                                return existing ? { ...newUser, avatar: existing.avatar } : newUser;
+                            });
+                            setUsers(merged);
+                        }
+                    }
+                } catch (e) { console.error("Database Sync Failed", e); }
+                finally { setIsSyncing(false); }
             };
 
-            const handleUpdateStatus = (id, status) => {
-                setLeads(leads.map(l => l.id === id ? { ...l, status } : l));
+            // Initial Sync
+            useEffect(() => {
+                fetchRepoDatabase();
+            }, []);
+
+            const handleLogout = () => {
+                localStorage.removeItem('jf_user');
+                setCurrentUser(null);
+                setView('dashboard');
             };
 
-            if (!currentUser) return <Login onLogin={setCurrentUser} />;
+            const handleUpdateProfile = (data) => {
+                const updated = { ...currentUser, ...data };
+                setCurrentUser(updated);
+            };
+
+            if (!currentUser) return <Login users={users} onLogin={setCurrentUser} />;
 
             return (
-                <div className="flex min-h-screen">
-                    <Sidebar currentView={view} setView={setView} currentUser={currentUser} onLogout={() => { localStorage.removeItem('jf_user'); setCurrentUser(null); }} />
-                    <main className="flex-1 overflow-y-auto bg-slate-50 max-h-screen">
-                        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-md px-8 py-4 border-b border-slate-200 flex justify-between items-center">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">JewelFlow / {view}</span>
-                            <div className="flex gap-4">
-                                {view !== 'add-lead' && <button onClick={() => setView('add-lead')} className="bg-amber-500 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-sm">+ New Lead</button>}
+                <div className="flex min-h-screen bg-slate-50">
+                    <Sidebar currentView={view} setView={setView} currentUser={currentUser} onLogout={handleLogout} />
+                    <main className="flex-1 overflow-y-auto max-h-screen">
+                        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl px-10 py-6 border-b border-slate-200/50 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[3px]">JewelFlow Management</span>
+                                <ChevronRight size={14} className="text-slate-300" />
+                                <span className="text-[10px] font-black text-slate-900 uppercase tracking-[3px]">{view.replace('-', ' ')}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                {isSyncing && <RefreshCcw size={14} className="animate-spin text-indigo-500" />}
+                                <button onClick={() => setView('add-lead')} className="bg-amber-500 text-slate-900 px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-amber-500/20 hover:bg-amber-400 transition-all">+ Register New Prospect</button>
                             </div>
                         </header>
-                        {view === 'dashboard' && <Dashboard leads={leads} />}
-                        {view === 'leads' && <LeadTable leads={leads} onUpdateStatus={handleUpdateStatus} onViewDetails={(id) => { setSelectedId(id); setView('lead-details'); }} />}
-                        {view === 'add-lead' && <LeadForm onSave={handleAddLead} onCancel={() => setView('leads')} currentUser={currentUser} />}
-                        {view === 'lead-details' && (
-                            <div className="p-8 animate-in">
-                                <button onClick={() => setView('leads')} className="mb-6 flex items-center gap-2 text-slate-500 hover:text-slate-900"><ArrowLeft size={16}/> Back</button>
-                                <div className="bg-white p-10 rounded-3xl border border-slate-200 shadow-sm">
-                                    <h2 className="text-3xl font-bold font-display mb-4">{leads.find(l => l.id === selectedId)?.customerName}</h2>
-                                    <p className="text-slate-500">Detailed profiling view for internal record keeping.</p>
-                                </div>
-                            </div>
-                        )}
-                        {['user-mgmt', 'settings'].includes(view) && (
-                            <div className="flex items-center justify-center h-96 text-slate-400 italic">Configuration module is restricted for the demo.</div>
-                        )}
+                        
+                        <div className="max-w-7xl mx-auto">
+                            {view === 'dashboard' && <div className="p-10"><h1 className="text-4xl font-bold font-display tracking-tight">Ecosystem Overview</h1><p className="mt-4 text-slate-400">Welcome back, {currentUser.name}. Database is synchronized.</p></div>}
+                            {view === 'user-mgmt' && <UserManagement users={users} onAddUser={(d) => setUsers([{...d, id: Date.now().toString(), createdAt: new Date().toISOString(), avatar: null}, ...users])} onDeleteUser={(id) => setUsers(users.filter(u => u.id !== id))} />}
+                            {view === 'settings' && <SettingsView currentUser={currentUser} onUpdateProfile={handleUpdateProfile} />}
+                            {view === 'leads' && <div className="p-20 text-center italic text-slate-400 border-2 border-dashed border-slate-200 m-8 rounded-[40px] font-display text-2xl">Sales Pipeline Module Loaded</div>}
+                        </div>
                     </main>
                 </div>
             );
