@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import LeadForm from './components/LeadForm';
@@ -10,8 +10,9 @@ import Login from './components/Login';
 import LeadDetails from './components/LeadDetails';
 import { Lead, View, LeadStatus, User, AppSettings, HistoryEntry } from './types';
 import { analyzeLead } from './services/geminiService';
+import { syncCloudTeam } from './services/cloudService';
 import { METAL_GROUPS, PRODUCT_CATEGORIES, SOURCES } from './constants';
-import { BrainCircuit } from 'lucide-react';
+import { BrainCircuit, Cloud, CloudOff, RefreshCcw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -21,13 +22,14 @@ const App: React.FC = () => {
 
   const [view, setView] = useState<View>('dashboard');
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   
   const [users, setUsers] = useState<User[]>(() => {
     const saved = localStorage.getItem('jewelflow_users');
     if (saved) return JSON.parse(saved);
     return [
-      { id: 'admin-1', name: 'System Admin', email: 'admin@jewelflow.com', role: 'Admin', createdAt: new Date().toISOString() },
-      { id: 'sales-1', name: 'Rahul Kumar', email: 'rahul@jewelflow.com', role: 'Sales', createdAt: new Date().toISOString() }
+      { id: 'admin-1', name: 'System Admin', email: 'admin@jewelflow.com', role: 'Admin', createdAt: new Date().toISOString() }
     ];
   });
 
@@ -46,6 +48,29 @@ const App: React.FC = () => {
     if (saved) return JSON.parse(saved);
     return [];
   });
+
+  // --- CLOUD SYNC LOGIC ---
+  const handleSync = useCallback(async () => {
+    setIsSyncing(true);
+    setSyncError(null);
+    try {
+      const cloudUsers = await syncCloudTeam();
+      setUsers(prev => {
+        // Keep local admin if it exists, but prioritize cloud data
+        const localAdmin = prev.find(u => u.id === 'admin-1');
+        const uniqueCloudUsers = cloudUsers.filter(cu => cu.email !== localAdmin?.email);
+        return localAdmin ? [localAdmin, ...uniqueCloudUsers] : cloudUsers;
+      });
+    } catch (err: any) {
+      setSyncError(err.message);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    handleSync();
+  }, [handleSync]);
 
   useEffect(() => {
     localStorage.setItem('jewelflow_current_user', JSON.stringify(currentUser));
@@ -86,7 +111,6 @@ const App: React.FC = () => {
     setUsers(users.filter(u => u.id !== id));
   };
 
-  // Fix: Omit 'history' from the input parameter as it's initialized within this function
   const handleAddLead = (leadData: Omit<Lead, 'id' | 'createdAt' | 'status' | 'history'>) => {
     const newLead: Lead = {
       ...leadData,
@@ -167,14 +191,13 @@ const App: React.FC = () => {
     setView('lead-details');
   };
 
-  // Filter leads based on role
   const filteredLeads = leads.filter(lead => {
     if (currentUser?.role === 'Admin' || currentUser?.role === 'Manager') return true;
     return lead.leadGeneratorId === currentUser?.id;
   });
 
   if (!currentUser) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} syncStatus={{ isSyncing, syncError }} onRetrySync={handleSync} />;
   }
 
   const renderView = () => {
@@ -206,7 +229,7 @@ const App: React.FC = () => {
           onAddNote={handleAddManualNote}
         />;
       case 'user-mgmt':
-        return <UserManagement users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />;
+        return <UserManagement users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} onRefresh={handleSync} isSyncing={isSyncing} />;
       case 'settings':
         return <Settings settings={settings} onUpdateSettings={setSettings} />;
       case 'analytics':
@@ -240,6 +263,10 @@ const App: React.FC = () => {
             <span className="text-xs font-bold text-slate-900 uppercase tracking-widest">{view.replace('-', ' ')}</span>
           </div>
           <div className="flex items-center gap-4">
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest ${syncError ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                {isSyncing ? <RefreshCcw size={10} className="animate-spin" /> : (syncError ? <CloudOff size={10} /> : <Cloud size={10} />)}
+                {isSyncing ? 'Syncing...' : (syncError ? 'Cloud Error' : 'Cloud Active')}
+              </div>
              {view !== 'add-lead' && view !== 'lead-details' && (
                <button onClick={() => setView('add-lead')} className="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow-sm transition-all">+ New Lead</button>
              )}
