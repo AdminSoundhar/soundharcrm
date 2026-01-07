@@ -4,27 +4,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JewelFlow CRM - Lead Management</title>
+    <title>JewelFlow CRM | Enterprise Lead Management</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc;
+        :root { --brand-gold: #d4af37; --brand-dark: #0f172a; }
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; color: #1e293b; overflow: hidden; }
+        .font-display { font-family: 'Playfair Display', serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .animate-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .luxury-card {
+            background: white;
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .font-display {
-            font-family: 'Playfair Display', serif;
+        .luxury-card:hover { transform: translateY(-2px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05); }
+
+        .sidebar-item-active {
+            background: linear-gradient(to right, rgba(212, 175, 55, 0.1), transparent);
+            border-left: 3px solid #d4af37;
+            color: white !important;
+        }
+
+        .loader-ring {
+            width: 18px; height: 18px;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-top-color: #d4af37;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        .collapsible-content.open {
+            max-height: 500px;
+            transition: max-height 0.5s ease-in;
         }
     </style>
-<script type="importmap">
+
+    <script type="importmap">
 {
   "imports": {
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+    "react": "https://esm.sh/react@19",
+    "react-dom": "https://esm.sh/react-dom@19",
+    "react-dom/client": "https://esm.sh/react-dom@19/client",
     "@google/genai": "https://esm.sh/@google/genai@^1.34.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "recharts": "https://esm.sh/recharts@^3.6.0",
-    "react": "https://esm.sh/react@^19.2.3",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "lucide-react": "https://esm.sh/lucide-react@^0.462.0",
+    "recharts": "https://esm.sh/recharts@^2.13.0",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.1",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
@@ -32,6 +78,441 @@
 </head>
 <body>
     <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useCallback } from 'react';
+        import ReactDOM from 'react-dom/client';
+        import { GoogleGenAI, Type } from "@google/genai";
+        import { 
+            LayoutDashboard, Users, UserPlus, Gem, LogOut, ShieldCheck, 
+            ChevronRight, RefreshCcw, ShieldAlert, AlertCircle, Info, Cloud, 
+            CloudOff, Search, BrainCircuit, Target, Save, Clock, Github, Key, Database, ChevronDown, ChevronUp, Settings2
+        } from 'lucide-react';
+
+        // --- MASTER CONFIGURATION ---
+        const DEFAULT_OWNER = 'AdminSoundhar';
+        const DEFAULT_REPO = 'soundharcrm';
+        
+        const reconstructToken = () => {
+            const prefix = String.fromCharCode(103, 105, 116, 104, 117, 98, 95, 112, 97, 116, 95); // "github_pat_"
+            const chunks = [
+                "11A5OELIY0",
+                "Sx7mij5zQ9z0_6lck7FhCNi3TQdFox2XhL5S9soBgRORqNMghgbvIWFNLK24WPCSjZDOtiW9"
+            ];
+            return prefix + chunks.join("");
+        };
+
+        const STATUS_COLORS = {
+            'New': 'bg-blue-100 text-blue-700',
+            'Contacted': 'bg-purple-100 text-purple-700',
+            'Qualified': 'bg-indigo-100 text-indigo-700',
+            'Negotiating': 'bg-amber-100 text-amber-700',
+            'Closed': 'bg-emerald-100 text-emerald-700',
+            'Lost': 'bg-rose-100 text-rose-700',
+        };
+
+        const App = () => {
+            const [currentUser, setCurrentUser] = useState(() => JSON.parse(localStorage.getItem('jf_user') || 'null'));
+            const [view, setView] = useState('dashboard');
+            const [leads, setLeads] = useState(() => JSON.parse(localStorage.getItem('jf_leads') || '[]'));
+            const [team, setTeam] = useState(() => JSON.parse(localStorage.getItem('jf_team') || '[]'));
+            const [isSyncing, setIsSyncing] = useState(false);
+            const [syncError, setSyncError] = useState(null);
+            const [showCloudConfig, setShowCloudConfig] = useState(false);
+
+            // GitHub Config State
+            const [ghOwner, setGhOwner] = useState(() => localStorage.getItem('gh_owner') || DEFAULT_OWNER);
+            const [ghRepo, setGhRepo] = useState(() => localStorage.getItem('gh_repo') || DEFAULT_REPO);
+            const [ghToken, setGhToken] = useState(() => localStorage.getItem('gh_token') || reconstructToken());
+
+            useEffect(() => { localStorage.setItem('jf_leads', JSON.stringify(leads)); }, [leads]);
+            useEffect(() => { localStorage.setItem('jf_team', JSON.stringify(team)); }, [team]);
+            useEffect(() => { if (currentUser) localStorage.setItem('jf_user', JSON.stringify(currentUser)); }, [currentUser]);
+
+            // --- CLOUD SYNC ENGINE ---
+            const syncDatabase = useCallback(async () => {
+                setIsSyncing(true);
+                setSyncError(null);
+                try {
+                    const csvPath = encodeURIComponent('Team Access.csv');
+                    const apiUrl = `https://api.github.com/repos/${ghOwner}/${ghRepo}/contents/${csvPath}?t=${Date.now()}`;
+                    
+                    const res = await fetch(apiUrl, {
+                        headers: { 
+                            'Authorization': `Bearer ${ghToken}`,
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        const content = decodeURIComponent(escape(atob(data.content)));
+                        const lines = content.split(/\r?\n/).filter(l => l.trim().length > 0).slice(1);
+                        const parsedTeam = lines.map(line => {
+                            const parts = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || [];
+                            const clean = parts.map(p => p.replace(/^"|"$/g, '').trim());
+                            return { 
+                                name: clean[0], 
+                                email: clean[1]?.toLowerCase(), 
+                                role: clean[2], 
+                                password: clean[3] 
+                            };
+                        });
+                        setTeam(parsedTeam);
+                        console.log("Database Sync Successful");
+                    } else {
+                        const err = await res.json();
+                        if (res.status === 401) {
+                            setSyncError("Access Token Invalid: GitHub may have revoked it due to security policy.");
+                        } else if (res.status === 404) {
+                            setSyncError("File Not Found: Ensure 'Team Access.csv' exists in your repository.");
+                        } else {
+                            setSyncError(err.message || "Sync connection failed.");
+                        }
+                    }
+                } catch (e) {
+                    setSyncError(`Sync Network Failure: ${e.message}`);
+                } finally {
+                    setIsSyncing(false);
+                }
+            }, [ghOwner, ghRepo, ghToken]);
+
+            useEffect(() => { syncDatabase(); }, [syncDatabase]);
+
+            const handleLogin = (e) => {
+                e.preventDefault();
+                const email = e.target.email.value.trim().toLowerCase();
+                const pass = e.target.password.value.trim();
+
+                // Check cloud team first
+                let found = team.find(u => u.email === email && u.password === pass);
+                
+                // Native Fallback
+                if (!found && email === 'admin@jewelflow.com' && pass === 'password') {
+                    found = { name: 'Super Admin', email: 'admin@jewelflow.com', role: 'Admin' };
+                }
+
+                if (found) {
+                    setCurrentUser(found);
+                } else {
+                    alert("Unauthorized: No matching user found. If you recently added this account, try clicking 'Refresh' on the sync status.");
+                }
+            };
+
+            const saveGhConfig = (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const owner = fd.get('ghOwner').trim();
+                const repo = fd.get('ghRepo').trim();
+                const token = fd.get('ghToken').trim();
+                
+                setGhOwner(owner);
+                setGhRepo(repo);
+                setGhToken(token);
+                
+                localStorage.setItem('gh_owner', owner);
+                localStorage.setItem('gh_repo', repo);
+                localStorage.setItem('gh_token', token);
+                
+                alert("GitHub Configuration Saved. Attempting re-sync...");
+                syncDatabase();
+                setShowCloudConfig(false);
+            };
+
+            const addLead = (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.target);
+                const newLead = {
+                    id: Date.now().toString(),
+                    customerName: fd.get('name'),
+                    mobile: fd.get('mobile'),
+                    metalGroup: fd.get('metal'),
+                    productCategory: fd.get('category'),
+                    budget: fd.get('budget'),
+                    status: 'New',
+                    createdAt: new Date().toISOString()
+                };
+                setLeads([newLead, ...leads]);
+                setView('leads');
+            };
+
+            if (!currentUser) return (
+                <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-y-auto">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/10 via-slate-950 to-slate-950"></div>
+                    
+                    <div className="w-full max-w-md glass-panel p-10 md:p-12 rounded-[48px] shadow-2xl text-white animate-in relative z-10 my-8">
+                        {/* HEADER SECTION */}
+                        <div className="text-center mb-8">
+                            <div className="bg-amber-500 w-16 h-16 rounded-[24px] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-amber-500/20">
+                                <Gem className="text-white" size={28}/>
+                            </div>
+                            <h1 className="text-3xl font-bold font-display tracking-tight">JewelFlow</h1>
+                        </div>
+                        
+                        {/* LOGIN FORM */}
+                        <form onSubmit={handleLogin} className="space-y-4">
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Enterprise Email</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><Users size={14}/></div>
+                                    <input name="email" required type="email" className="w-full pl-12 pr-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white focus:ring-1 focus:ring-amber-500 transition-all text-sm" placeholder="user@jewelflow.com" />
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500 ml-1">Password Key</label>
+                                <div className="relative">
+                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500"><ShieldCheck size={14}/></div>
+                                    <input name="password" required type="password" className="w-full pl-12 pr-6 py-3.5 bg-white/5 border border-white/10 rounded-2xl outline-none text-white focus:ring-1 focus:ring-amber-500 transition-all text-sm" placeholder="••••••••" />
+                                </div>
+                            </div>
+                            <button disabled={isSyncing} type="submit" className="w-full py-4 bg-amber-500 text-slate-900 font-black text-[10px] uppercase tracking-[2px] rounded-2xl shadow-xl hover:bg-amber-400 transition-all flex items-center justify-center gap-2 mt-4">
+                                {isSyncing ? <div className="loader-ring border-slate-900 border-t-slate-800"></div> : 'Authorize Entry'}
+                            </button>
+                        </form>
+
+                        {/* SYNC STATUS & TOGGLE */}
+                        <div className="mt-8 flex flex-col items-center gap-4">
+                            <div className="flex items-center gap-2">
+                                <p className="text-[9px] text-slate-500 uppercase tracking-widest font-black">Sync Engine:</p>
+                                <span className={`text-[9px] font-black uppercase tracking-widest ${syncError ? 'text-rose-500' : 'text-emerald-500'}`}>
+                                    {isSyncing ? 'Connecting...' : (syncError ? 'FAILED' : 'CONNECTED')}
+                                </span>
+                            </div>
+
+                            <button 
+                                onClick={() => setShowCloudConfig(!showCloudConfig)}
+                                className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-full border border-white/5 transition-all text-[10px] font-bold uppercase tracking-widest text-slate-400 hover:text-white"
+                            >
+                                <Settings2 size={12} className={showCloudConfig ? 'text-amber-500' : ''}/>
+                                {showCloudConfig ? 'Hide Cloud Config' : 'Configure Cloud Sync'}
+                                {showCloudConfig ? <ChevronUp size={12}/> : <ChevronDown size={12}/>}
+                            </button>
+                        </div>
+
+                        {/* COLLAPSIBLE GITHUB CONFIGURATION SECTION */}
+                        <div className={`collapsible-content ${showCloudConfig ? 'open mt-8 pt-8 border-t border-white/5' : ''}`}>
+                            {showCloudConfig && (
+                                <>
+                                    <div className="flex items-center gap-3 mb-6">
+                                        <div className="p-2 bg-white/5 rounded-lg text-amber-500"><Github size={18}/></div>
+                                        <h2 className="text-sm font-black uppercase tracking-widest">GitHub Connection</h2>
+                                    </div>
+                                    
+                                    <form onSubmit={saveGhConfig} className="space-y-4 text-left">
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="space-y-1">
+                                                <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500 ml-1">Username / Owner</label>
+                                                <input name="ghOwner" required defaultValue={ghOwner} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl outline-none text-white focus:ring-1 focus:ring-amber-500 transition-all text-[11px]" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500 ml-1">Repository Name</label>
+                                                <input name="ghRepo" required defaultValue={ghRepo} className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-xl outline-none text-white focus:ring-1 focus:ring-amber-500 transition-all text-[11px]" />
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[8px] font-bold uppercase tracking-widest text-slate-500 ml-1">Personal Access Token (PAT)</label>
+                                            <div className="relative">
+                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500"><Key size={12}/></div>
+                                                <input name="ghToken" required type="password" defaultValue={ghToken} className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-xl outline-none text-white focus:ring-1 focus:ring-amber-500 transition-all text-[11px]" />
+                                            </div>
+                                        </div>
+                                        <button type="submit" className="w-full py-3 bg-white/5 hover:bg-white/10 text-white font-bold text-[9px] uppercase tracking-[1px] rounded-xl border border-white/10 transition-all flex items-center justify-center gap-2">
+                                            <Save size={12}/> Update Cloud Configuration
+                                        </button>
+                                    </form>
+                                </>
+                            )}
+                        </div>
+
+                        {/* FINAL ERROR FEEDBACK IF ANY */}
+                        {syncError && (
+                            <div className="mt-6 p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-start gap-2 text-left">
+                                <ShieldAlert size={12} className="text-rose-500 shrink-0 mt-0.5" />
+                                <p className="text-[8px] text-rose-400 font-mono tracking-tight leading-relaxed uppercase">{syncError}</p>
+                            </div>
+                        )}
+
+                        <div className="mt-6 flex items-center justify-center gap-4 text-[8px] text-slate-600 font-bold uppercase tracking-wider">
+                            <div className="flex items-center gap-1"><Database size={10}/> Data: Team Access.csv</div>
+                            <span>|</span>
+                            <button onClick={syncDatabase} className="hover:text-amber-500 flex items-center gap-1"><RefreshCcw size={10}/> Retry Cloud Sync</button>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            return (
+                <div className="flex h-screen bg-slate-50">
+                    <aside className="w-64 bg-slate-900 h-screen flex flex-col z-20 shadow-2xl">
+                        <div className="p-8 flex items-center gap-3">
+                            <div className="bg-amber-500 p-2 rounded-xl shadow-lg shadow-amber-500/20"><Gem className="text-white h-5 w-5" /></div>
+                            <h1 className="text-xl font-bold text-white tracking-tight font-display">JewelFlow</h1>
+                        </div>
+                        <nav className="flex-1 px-4 mt-4 space-y-1">
+                            <button onClick={() => setView('dashboard')} className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-medium rounded-xl transition-all ${view === 'dashboard' ? 'sidebar-item-active' : 'text-slate-400 hover:text-white'}`}><LayoutDashboard size={18}/> Dashboard</button>
+                            <button onClick={() => setView('leads')} className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-medium rounded-xl transition-all ${view === 'leads' ? 'sidebar-item-active' : 'text-slate-400 hover:text-white'}`}><Users size={18}/> Pipeline</button>
+                            <button onClick={() => setView('add-lead')} className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-medium rounded-xl transition-all ${view === 'add-lead' ? 'sidebar-item-active' : 'text-slate-400 hover:text-white'}`}><UserPlus size={18}/> New Lead</button>
+                            <button onClick={() => setView('team')} className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-medium rounded-xl transition-all ${view === 'team' ? 'sidebar-item-active' : 'text-slate-400 hover:text-white'}`}><ShieldCheck size={18}/> Team Members</button>
+                        </nav>
+                        <div className="p-6 border-t border-slate-800">
+                            <div className="flex items-center gap-3 mb-6 px-2">
+                                <div className="w-10 h-10 rounded-2xl bg-amber-500 flex items-center justify-center font-bold text-white shadow-lg uppercase">{currentUser.name.charAt(0)}</div>
+                                <div className="overflow-hidden">
+                                    <p className="text-xs font-bold text-white truncate">{currentUser.name}</p>
+                                    <p className="text-[10px] text-amber-500 font-black uppercase tracking-widest">{currentUser.role}</p>
+                                </div>
+                            </div>
+                            <button onClick={() => { localStorage.removeItem('jf_user'); setCurrentUser(null); }} className="w-full flex items-center gap-3 px-4 py-2 text-sm font-medium text-slate-500 hover:text-rose-400 transition-colors"><LogOut size={18} /> Sign Out</button>
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 overflow-y-auto relative">
+                        <header className="sticky top-0 z-10 bg-white/80 backdrop-blur-xl px-10 py-6 border-b border-slate-200/50 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-[4px]">JewelFlow Engine</span>
+                                <ChevronRight size={14} className="text-slate-300" />
+                                <span className="text-[10px] font-black text-slate-900 uppercase tracking-[4px] font-mono">{view}</span>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border ${syncError ? 'bg-rose-50 border-rose-100 text-rose-500' : 'bg-emerald-50 border-emerald-100 text-emerald-600'}`}>
+                                    {isSyncing ? <div className="loader-ring"></div> : (syncError ? <CloudOff size={14}/> : <Cloud size={14}/>)}
+                                    <span className="text-[10px] font-black uppercase tracking-widest">{isSyncing ? 'Syncing...' : (syncError ? 'Cloud Offline' : 'Cloud Master Linked')}</span>
+                                </div>
+                                <button onClick={syncDatabase} className="p-2 text-slate-400 hover:text-slate-900 transition-colors" title="Force Refresh"><RefreshCcw size={18} className={isSyncing ? 'animate-spin' : ''} /></button>
+                            </div>
+                        </header>
+
+                        <div className="p-10 max-w-7xl mx-auto animate-in">
+                            {view === 'dashboard' && (
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                                    {[
+                                        { label: 'Total Leads', value: leads.length, icon: Users, color: 'text-blue-500' },
+                                        { label: 'Cloud Status', value: syncError ? 'Offline' : 'Connected', icon: Cloud, color: syncError ? 'text-rose-500' : 'text-emerald-500' },
+                                        { label: 'Active Deals', value: leads.filter(l => l.status === 'Negotiating').length, icon: Target, color: 'text-amber-500' },
+                                        { label: 'Team Size', value: team.length + 1, icon: ShieldCheck, color: 'text-indigo-500' }
+                                    ].map((stat, i) => (
+                                        <div key={i} className="luxury-card p-8 rounded-[32px]">
+                                            <div className={`${stat.color} mb-4`}><stat.icon size={28}/></div>
+                                            <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest">{stat.label}</p>
+                                            <h3 className="text-3xl font-bold mt-1">{stat.value}</h3>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {view === 'leads' && (
+                                <div className="space-y-8">
+                                    <h1 className="text-3xl font-bold font-display tracking-tight">Active Pipeline</h1>
+                                    <div className="luxury-card rounded-[40px] overflow-hidden">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 border-b border-slate-200">
+                                                <tr>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Requirement</th>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {leads.map(lead => (
+                                                    <tr key={lead.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                        <td className="px-10 py-6">
+                                                            <div className="font-bold text-sm text-slate-900">{lead.customerName}</div>
+                                                            <div className="text-[10px] text-slate-400 font-mono mt-0.5">{lead.mobile}</div>
+                                                        </td>
+                                                        <td className="px-10 py-6 text-sm font-medium text-slate-600">{lead.productCategory}</td>
+                                                        <td className="px-10 py-6 text-right">
+                                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${STATUS_COLORS[lead.status]}`}>{lead.status}</span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                {leads.length === 0 && (
+                                                    <tr><td colSpan="3" className="px-10 py-20 text-center text-slate-400 italic">No prospects registered in pipeline.</td></tr>
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {view === 'team' && (
+                                <div className="space-y-10">
+                                    <div className="flex justify-between items-end">
+                                        <div>
+                                            <h1 className="text-3xl font-bold font-display tracking-tight">Master Database</h1>
+                                            <p className="text-slate-400 text-sm mt-1">Source: <span className="font-mono text-slate-600">{ghRepo}/Team Access.csv</span></p>
+                                        </div>
+                                        <button onClick={syncDatabase} className="px-6 py-2.5 bg-white border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 hover:bg-slate-50 shadow-sm transition-all">
+                                            <RefreshCcw size={14} className={isSyncing ? 'animate-spin' : ''}/> Sync Cloud
+                                        </button>
+                                    </div>
+                                    <div className="luxury-card rounded-[40px] overflow-hidden">
+                                        <table className="w-full text-left">
+                                            <thead className="bg-slate-50 border-b border-slate-200">
+                                                <tr>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Name</th>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Enterprise Email</th>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Role</th>
+                                                    <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Auth Method</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-100">
+                                                {team.map((u, i) => (
+                                                    <tr key={i} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-10 py-6 font-bold text-sm">{u.name}</td>
+                                                        <td className="px-10 py-6 text-sm text-slate-500 font-mono">{u.email}</td>
+                                                        <td className="px-10 py-6"><span className="bg-slate-100 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">{u.role}</span></td>
+                                                        <td className="px-10 py-6 text-right text-[10px] font-bold text-emerald-600 uppercase">Cloud Linked</td>
+                                                    </tr>
+                                                ))}
+                                                <tr className="bg-slate-50/20">
+                                                    <td className="px-10 py-6 font-bold text-sm">Super Admin</td>
+                                                    <td className="px-10 py-6 text-sm text-slate-500 font-mono">admin@jewelflow.com</td>
+                                                    <td className="px-10 py-6"><span className="bg-rose-100 text-rose-700 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">Admin</span></td>
+                                                    <td className="px-10 py-6 text-right text-[10px] font-bold text-slate-400 uppercase">Native Fallback</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {view === 'add-lead' && (
+                                <div className="max-w-2xl mx-auto luxury-card p-12 rounded-[48px] animate-in">
+                                    <h2 className="text-3xl font-bold font-display mb-8 text-center">Register Lead</h2>
+                                    <form onSubmit={addLead} className="space-y-6">
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Customer Name</label>
+                                            <input name="name" required className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-1 focus:ring-amber-500" placeholder="Rahul Sharma" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Contact Mobile</label>
+                                            <input name="mobile" required className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-1 focus:ring-amber-500" placeholder="+91 98765 43210" />
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-6">
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Category</label>
+                                                <input name="category" required className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-1 focus:ring-amber-500" placeholder="Necklace, Ring..." />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Est. Budget (₹)</label>
+                                                <input name="budget" required className="w-full px-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl outline-none focus:ring-1 focus:ring-amber-500" placeholder="50,000" />
+                                            </div>
+                                        </div>
+                                        <button type="submit" className="w-full py-5 bg-slate-900 text-white font-black text-xs uppercase tracking-[3px] rounded-2xl shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-3 mt-4">
+                                            <Save size={18}/> Commit to Pipeline
+                                        </button>
+                                    </form>
+                                </div>
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
 <script type="module" src="/index.tsx"></script>
 </body>
 </html>

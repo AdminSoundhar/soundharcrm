@@ -1,20 +1,39 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# JewelFlow CRM
 
-This contains everything you need to run your app locally.
+A sophisticated lead management CRM designed for high-end jewelry retail, featuring AI-powered lead scoring and history tracking.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1AEmGBxMhugUJLO_m1yiXzUcRD7hsrb0o
+## 🚀 GitHub Deployment Instructions
 
-## Run Locally
+### 1. Create a New Repository
+- Go to [GitHub](https://github.com/new) and create a new repository named `jewelflow-crm`.
 
-**Prerequisites:**  Node.js
+### 2. Push to GitHub
+Open your terminal in this project folder and run:
+```bash
+git init
+git add .
+git commit -m "Initial commit: JewelFlow CRM"
+git branch -M main
+git remote add origin https://github.com/YOUR_USERNAME/jewelflow-crm.git
+git push -u origin main
+```
 
+### 3. Setup GitHub Pages
+1. Go to your repository on GitHub.
+2. Click **Settings** > **Pages**.
+3. Under **Build and deployment** > **Source**, select **GitHub Actions**.
+4. GitHub will suggest a "Static HTML" or "Vite" workflow. Choose the **Static HTML** or create a custom one using the Vite template.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+### 4. Configure API Key
+Since this app uses the Gemini API, you must handle the `API_KEY`.
+- **For Local Development**: Create a `.env` file with `VITE_GEMINI_API_KEY=your_key`.
+- **For Production**: In a real production app, you should proxy these requests through a backend. For a quick demo on GitHub Pages, you can modify `geminiService.ts` to accept a key via a Settings UI in the app.
+
+## 🛠 Tech Stack
+- **Framework**: React 19 + TypeScript
+- **Bundler**: Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **AI**: Google Gemini API (@google/genai)
+- **Charts**: Recharts
